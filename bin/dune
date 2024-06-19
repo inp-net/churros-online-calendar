@@ -1,0 +1,4 @@
+(executable
+ (public_name churros_online_calendar)
+ (name main)
+ (libraries churros_online_calendar))
