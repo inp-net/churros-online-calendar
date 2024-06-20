@@ -1,5 +1,5 @@
 (library
-  (name churros_online_calendar)
+  (name json)
   (wrapped false)
   (preprocess
       (pps ppx_deriving.show sedlex.ppx)

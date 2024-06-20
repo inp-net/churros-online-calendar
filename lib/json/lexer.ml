@@ -10,46 +10,46 @@ let float = [%sedlex.regexp? number, Opt ('.', number)]
 let string = [%sedlex.regexp? '"', Star (Compl '"'), '"']
 let escaped_string = [%sedlex.regexp? '"', Star (Compl ('"' | '\\') | '\\', any), '"']
 
-let rec tokenizer lexbuf =
-  match%sedlex lexbuf with
-  | whitespace -> tokenizer lexbuf
+let rec tokenizer (buffer : Sedlexing.lexbuf) : token =
+  match%sedlex buffer with
+  | whitespace -> tokenizer buffer
   |"null" -> NULL
-  | number -> INT (int_of_string (lexeme lexbuf))
+  | number -> INT (int_of_string (lexeme buffer))
   | "true" -> BOOL true
   | "false" -> BOOL false
-  | float -> FLOAT (float_of_string (lexeme lexbuf))
-  | escaped_string -> STRING (String.sub (lexeme lexbuf) 1 ((String.length (lexeme lexbuf)) - 2))
+  | float -> FLOAT (float_of_string (lexeme buffer))
+  | escaped_string -> STRING (String.sub (lexeme buffer) 1 ((String.length (lexeme buffer)) - 2))
   | "," -> COMMA
   | ":" -> COLON
   | "{" -> LBRACE
   | "}" -> RBRACE
   | "[" -> LBRACKET
   | "]" -> RBRACKET
-  | "//" -> single_comment lexbuf
-  | "/*" -> multi_comment lexbuf
+  | "//" -> single_comment buffer
+  | "/*" -> multi_comment buffer
   | eof -> EOF
-  | _ -> raise (Lexer_unknown_token (lexeme lexbuf))
-and single_comment lexbuf =
-  print_string (lexeme lexbuf);
-  match%sedlex lexbuf with
-  | newline -> tokenizer lexbuf
-  | any -> single_comment lexbuf
+  | _ -> raise (Lexer_unknown_token (lexeme buffer))
+and single_comment (buffer : Sedlexing.lexbuf) : token =
+  print_string (lexeme buffer);
+  match%sedlex buffer with
+  | newline -> tokenizer buffer
+  | any -> single_comment buffer
   | eof -> EOF
-  | _ -> raise (Lexer_unknown_token (lexeme lexbuf))
-and multi_comment lexbuf =
-  print_string (lexeme lexbuf);
-  match%sedlex lexbuf with
-  | "*/" -> tokenizer lexbuf
-  | any -> multi_comment lexbuf
+  | _ -> raise (Lexer_unknown_token (lexeme buffer))
+and multi_comment (buffer : Sedlexing.lexbuf) : token =
+  print_string (lexeme buffer);
+  match%sedlex buffer with
+  | "*/" -> tokenizer buffer
+  | any -> multi_comment buffer
   | eof -> EOF
-  | _ -> raise (Lexer_unknown_token (lexeme lexbuf))
+  | _ -> raise (Lexer_unknown_token (lexeme buffer))
 
-let provider buf () =
-  let token = tokenizer buf in
-  let start, stop = Sedlexing.lexing_positions buf in
+let provider (buffer : Sedlexing.lexbuf) () : token * Lexing.position * Lexing.position =
+  let token = tokenizer buffer in
+  let start, stop = Sedlexing.lexing_positions buffer in
   (token, start, stop)
 
-let from_string parser string =
-  let buf = from_string string in
-  let provider = provider buf in
+let from_string (parser : (token, 'a) MenhirLib.Convert.traditional) (str : string) : 'a =
+  let buffer = from_string str in
+  let provider = provider buffer in
   MenhirLib.Convert.Simplified.traditional2revised parser provider

@@ -1,8 +1,9 @@
 (library
-  (name churros_online_calendar)
+  (name http)
   (wrapped false)
   (preprocess
       (pps ppx_deriving.show)
   )
   (modules http)
+  (libraries unix)
 )
