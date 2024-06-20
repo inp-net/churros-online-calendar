@@ -190,7 +190,5 @@ let code = {|
 |}
 
 let _ =
-  let lexbuf = Lexing.from_string code in
-  let parsed_opt = Parser.file Lexer.token lexbuf in
-  let parsed = Option.get parsed_opt in
+  let parsed = Option.get (Lexer.from_string Parser.file code) in
   print_endline (Syntax.show_t_json parsed)

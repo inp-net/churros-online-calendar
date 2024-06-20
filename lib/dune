@@ -2,12 +2,11 @@
   (name churros_online_calendar)
   (wrapped false)
   (preprocess
-      (pps ppx_deriving.show)
+      (pps ppx_deriving.show sedlex.ppx)
   )
   (modules syntax lexer parser)
+  (libraries menhirLib)
 )
-
-(ocamllex lexer)
 
 (menhir
   (modules parser)
