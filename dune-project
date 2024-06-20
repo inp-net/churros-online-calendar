@@ -1,26 +1,29 @@
-(lang dune 3.13)
+(lang dune 3.10)
 
 (name churros_online_calendar)
+
+(using menhir 2.1)
 
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+  (github inp-net/churros-online-calendar)
+)
 
-(authors "Author Name")
+(authors "INP-net")
 
-(maintainers "Maintainer Name")
+(maintainers "Theo Bessel" "Teo Pisenti")
 
 (license LICENSE)
 
 (documentation https://url/to/documentation)
 
 (package
- (name churros_online_calendar)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
- (tags
-  (topics "to describe" your project)))
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+  (name churros_online_calendar)
+  (synopsis "A program to export churros events to an online calendar.")
+  (description "This program fetches churros API events and exports them to an online calendar using .ics files.")
+  (depends (ocaml (>= 5.1)) dune)
+  (tags
+    (calendar ics churros)
+  )
+)
