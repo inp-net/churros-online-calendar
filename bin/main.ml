@@ -1,3 +1,7 @@
+open Lwt
+open Cohttp
+open Cohttp_lwt_unix
+
 let graphql = {|
   {
     events(last: 4) {
@@ -14,30 +18,24 @@ let graphql = {|
   }
 |}
 
-let request = Printf.sprintf {|
-  POST /graphql HTTP/2
-  Host: churros.inpt.fr
-  User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0
-  Accept: application/graphql-response+json, application/json, multipart/mixed
-  Accept-Language: fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3
-  Accept-Encoding: gzip, deflate, br, zstd
-  Content-Type: application/json
-  Content-Length: 173
-  Origin: https://churros.inpt.fr
-  Sec-Fetch-Dest: empty
-  Sec-Fetch-Mode: cors
-  Sec-Fetch-Site: same-origin
-  Connection: keep-alive
-  Priority: u=1
-
+let req_body = Printf.sprintf {|
   {
     "query":"%s",
     "extensions":{}
   }
-|} graphql
+|} (String.escaped graphql)
 
-let _ =
-  let response = Http.http_request request "churros.inpt.fr" 443 in
-  print_endline response;
-  let parsed = Option.get (Lexer.from_string Parser.file response) in
-  print_endline (Syntax.show_t_json parsed)
+let body =
+  Client.post ~headers:(Cohttp.Header.init_with "Content-Type" "application/json")
+  ~body:(Cohttp_lwt.Body.of_string req_body) (Uri.of_string "https://churros.inpt.fr/graphql")
+  >>= fun (resp, body) ->
+  let code = resp |> Response.status |> Code.code_of_status in
+  Printf.printf "Response code: %d\n" code;
+  Printf.printf "Headers: %s\n" (resp |> Response.headers |> Header.to_string);
+  body |> Cohttp_lwt.Body.to_string >|= fun body ->
+  Printf.printf "Body of length: %d\n" (String.length body);
+  body
+
+let () =
+  let body = Lwt_main.run body in
+  print_endline ("Received body\n" ^ body)
