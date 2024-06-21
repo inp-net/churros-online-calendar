@@ -36,9 +36,6 @@ let body =
 
 let () =
   let body = Lwt_main.run body in
-  print_endline ("Received body\n" ^ body)
-
-
-let () =
-  let parsed = Option.get (Lexer.from_string Parser.file "") in
+  print_endline ("Received body\n" ^ body);
+  let parsed = Option.get (Lexer.from_string Parser.file body) in
   print_endline (Syntax.show_t_json parsed)
