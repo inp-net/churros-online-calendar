@@ -1,4 +1,3 @@
-
 let send_request (channel : out_channel) (request : string) : unit =
   output_string channel request;
   flush channel
