@@ -1,5 +1,5 @@
 (executable
   (public_name churros_online_calendar)
   (name main)
-  (libraries json http lwt cohttp cohttp-lwt-unix)
+  (libraries json http ics calendar lwt cohttp cohttp-lwt-unix)
 )

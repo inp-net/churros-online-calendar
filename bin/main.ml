@@ -1,10 +1,14 @@
 open Lwt.Infix
 
-let graphql = {|
+let events = 10
+
+let graphql = Printf.sprintf {|
   {
-    events(last: 4) {
+    events(last: %i) {
       nodes {
         uid
+        title
+        description
         startsAt
         endsAt
         location
@@ -14,7 +18,7 @@ let graphql = {|
       }
     }
   }
-|}
+|} events
 
 let req_body = Printf.sprintf {|
   {
@@ -24,18 +28,14 @@ let req_body = Printf.sprintf {|
 |} (String.escaped graphql)
 
 let body =
-  Cohttp_lwt_unix.Client.post ~headers:(Cohttp.Header.init_with "Content-Type" "application/json")
+  Cohttp_lwt_unix.Client.post
+  ~headers:(Cohttp.Header.init_with "Content-Type" "application/json")
   ~body:(Cohttp_lwt.Body.of_string req_body) (Uri.of_string "https://churros.inpt.fr/graphql")
-  >>= fun (resp, body) ->
-  let code = resp |> Cohttp_lwt_unix.Response.status |> Cohttp.Code.code_of_status in
-  Printf.printf "Response code: %d\n" code;
-  Printf.printf "Headers: %s\n" (resp |> Cohttp_lwt_unix.Response.headers |> Cohttp.Header.to_string);
-  body |> Cohttp_lwt.Body.to_string >|= fun body ->
-  Printf.printf "Body of length: %d\n" (String.length body);
-  body
+  >>= fun (_, body) -> body |> Cohttp_lwt.Body.to_string
 
 let () =
   let body = Lwt_main.run body in
-  print_endline ("Received body\n" ^ body);
   let parsed = Option.get (Lexer.from_string Parser.file body) in
-  print_endline (Syntax.show_t_json parsed)
+  let file = open_out "churros_calendar.ics" in
+  Printf.fprintf file "%s" (Ics.print_ics (Calendar.ics_of_json parsed));
+  close_out file
