@@ -40,17 +40,18 @@
             nativeBuildInputs = [ pkgs.ocamlPackages.menhir ];
             buildInputs = with pkgs.ocamlPackages; [ ppx_deriving ppxlib menhirLib sedlex cohttp-lwt-unix ];
           };
+        });
 
-          # Add dependencies that are only needed for development
-          devShells = forAllSystems (system:
-            let
-              pkgs = nixpkgsFor.${system};
-            in
-            {
-              default = pkgs.mkShell {
-                buildInputs = with pkgs; [ dune_3 ocaml utop ocamlformat ];
-              };
-            });
+      # Add dependencies that are only needed for development
+      devShells = forAllSystems (system:
+        let
+          pkgs = nixpkgsFor.${system};
+        in
+        {
+          default = pkgs.mkShell {
+            buildInputs = with pkgs; [ nixd ocaml dune_3 ocamlformat ocamlPackages.ocaml-lsp ]
+              ++ (with self.packages.${system}.churros-online-calendar; nativeBuildInputs ++ buildInputs);
+          };
         });
 
       # The default package for 'nix build'. This makes sense if the
