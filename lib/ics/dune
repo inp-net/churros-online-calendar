@@ -1,8 +1,6 @@
 (library
-  (name ics)
-  (wrapped false)
-  (preprocess
-      (pps ppx_deriving.show)
-  )
-  (modules ics)
-)
+ (name ics)
+ (wrapped false)
+ (preprocess
+  (pps ppx_deriving.show))
+ (modules ics))

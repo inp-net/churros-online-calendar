@@ -1,9 +1,7 @@
 (library
-  (name calendar)
-  (wrapped false)
-  (preprocess
-      (pps ppx_deriving.show)
-  )
-  (modules calendar)
-  (libraries json ics)
-)
+ (name calendar)
+ (wrapped false)
+ (preprocess
+  (pps ppx_deriving.show))
+ (modules calendar)
+ (libraries json ics))

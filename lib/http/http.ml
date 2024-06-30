@@ -6,7 +6,9 @@ let rec get_response (sock : Unix.file_descr) (channel : in_channel) : string =
   try
     let line = input_line channel in
     line ^ get_response sock channel
-  with End_of_file -> Unix.close sock; ""
+  with End_of_file ->
+    Unix.close sock;
+    ""
 
 let http_request (request : string) (host : string) (port : int) : string =
   let ip = (Unix.gethostbyname host).h_addr_list.(0) in
@@ -15,10 +17,9 @@ let http_request (request : string) (host : string) (port : int) : string =
 
   let sock = Unix.(socket PF_INET SOCK_STREAM 0) in
   Unix.connect sock addr;
-  
+
   let input = Unix.in_channel_of_descr sock in
   let output = Unix.out_channel_of_descr sock in
-  
+
   send_request output request;
   get_response sock input
-

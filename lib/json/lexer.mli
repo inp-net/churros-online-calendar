@@ -1,1 +1,2 @@
-val from_string : (Parser.token, 'a) MenhirLib.Convert.traditional -> string -> 'a
+val from_string :
+  (Parser.token, 'a) MenhirLib.Convert.traditional -> string -> 'a

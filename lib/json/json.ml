@@ -1,4 +1,5 @@
-type t_assoc = { key : string; value : t_json}
+type t_assoc = { key : string; value : t_json }
+
 and t_json =
   | J_Null
   | J_Int of int
