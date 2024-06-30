@@ -1,0 +1,10 @@
+(library
+ (name persistence)
+ (wrapped false)
+ (modules persistence queries)
+ (libraries
+  crypto_rng_uid
+  caqti
+  caqti-driver-sqlite3
+  caqti-driver-postgresql
+  caqti-lwt.unix))
