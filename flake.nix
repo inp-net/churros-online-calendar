@@ -38,7 +38,19 @@
             src = ./.;
 
             nativeBuildInputs = [ pkgs.ocamlPackages.menhir ];
-            buildInputs = with pkgs.ocamlPackages; [ ppx_deriving ppxlib menhirLib sedlex cohttp-lwt-unix ];
+            buildInputs = with pkgs.ocamlPackages; [
+              ppx_deriving
+              ppxlib
+              menhirLib
+              sedlex
+              cohttp-lwt-unix
+              caqti-lwt
+              caqti-driver-sqlite3
+              caqti-driver-postgresql
+              mirage-crypto-rng
+              mirage-crypto-rng-lwt
+              base64
+            ];
           };
         });
 
