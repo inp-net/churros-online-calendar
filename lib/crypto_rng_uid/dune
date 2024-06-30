@@ -1,0 +1,4 @@
+(library
+ (name crypto_rng_uid)
+ (wrapped false)
+ (libraries mirage-crypto-rng mirage-crypto-rng-lwt base64))
