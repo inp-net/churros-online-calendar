@@ -1,5 +1,6 @@
 (executable
-  (public_name churros_online_calendar)
-  (name main)
-  (libraries json http ics calendar lwt cohttp cohttp-lwt-unix)
-)
+ (public_name churros_online_calendar)
+ (name main)
+ (preprocess
+  (pps lwt_ppx))
+ (libraries json http ics calendar persistence lwt cohttp cohttp-lwt-unix))

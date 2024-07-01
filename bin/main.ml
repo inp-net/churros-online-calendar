@@ -1,8 +1,13 @@
 open Lwt.Infix
 
 let events = 10
+let timeout = 20
+let port = 8080
+let churros_graphql_url = "https://churros.inpt.fr/graphql"
 
-let graphql = Printf.sprintf {|
+let graphql =
+  Printf.sprintf
+    {|
   {
     events(last: %i) {
       nodes {
@@ -18,15 +23,21 @@ let graphql = Printf.sprintf {|
       }
     }
   }
-|} events
+|}
+    events
 
-let req_body = Printf.sprintf {|
-  {
-    "query":"%s",
-    "extensions":{}
-  }
-|} (String.escaped graphql)
-
+(** obtient le corps de la requête post pour exécuter la requête graphql demandée
+    @param graphql la string contenant la requête graphql formattée
+ *)
+let req_body graphql =
+  Printf.sprintf
+    {|
+      {
+        "query":"%s",
+        "extensions":{}
+      }
+    |}
+    (String.escaped graphql)
 
 (*
 let () =
@@ -37,21 +48,181 @@ let () =
   close_out file
 *)
 
+let _ =
+  Persistence.ensure_tables_exist () >>= function
+  | Ok () -> Lwt_io.eprintl "database connection ok"
+  | Error `Connection_database_error ->
+      Lwt_io.eprintl "cannot connect database, please verify your configuration"
+      >|= fun () -> exit 1
+  | Error `Internal_database_error ->
+      Lwt_io.eprintl
+        "internal database error, if the error persist, try contact the \
+         developper"
+      >|= fun () -> exit 1
 
-let json_txt_to_ics = fun s -> Option.get (Lexer.from_string Parser.file s)
+(** Fait une requête à l'api churros sur /me pour vérifier que le token est
+    toujours valide
+    @param token le token à vérifier
+    @return true si le token est valide, false otherwise
+ *)
+let verify_churros_token churros_token =
+  let headers =
+    let h = Cohttp.Header.init_with "Content-Type" "application/json" in
+    Cohttp.Header.add h "Authorization"
+      (Printf.sprintf "Bearer %s" churros_token)
+  and body =
+    Cohttp_lwt.Body.of_string
+      (req_body {|
+      {
+        me {
+          uid
+        }
+      }
+  |})
+  in
+  let%lwt _, churros_response_body =
+    Cohttp_lwt_unix.Client.post ~headers ~body
+      (Uri.of_string churros_graphql_url)
+  in
+  Cohttp_lwt.Body.to_string churros_response_body >>= fun s ->
+  match Option.get (Lexer.from_string Parser.file s) with
+  | Json.J_Object l ->
+      Lwt.return
+        (not
+           (List.exists
+              (function
+                | Json.{ key = "errors"; value = Json.J_Array errors } ->
+                    List.exists
+                      (function
+                        | Json.J_Object
+                            [
+                              {
+                                key = "message";
+                                value =
+                                  J_String
+                                    "Tu n'es pas autorisé à effectuer cette \
+                                     action.";
+                              };
+                            ] ->
+                            true
+                        | _ -> false)
+                      errors
+                | _ -> false)
+              l))
+  | _ -> Lwt.return true
+
+let json_txt_to_ics s =
+  Option.get (Lexer.from_string Parser.file s)
   |> Calendar.ics_of_json |> Ics.print_ics
 
-let server =
-  let callback _ req _ = match Cohttp_lwt_unix.Request.meth req with
-  | `GET -> Cohttp_lwt_unix.Client.post
-  ~headers:(Cohttp.Header.init_with "Content-Type" "application/json")
-  ~body:(Cohttp_lwt.Body.of_string req_body) (Uri.of_string "https://churros.inpt.fr/graphql")
-  >>= fun (_, body) -> body |> Cohttp_lwt.Body.to_string >>=
-    fun content -> Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body:(json_txt_to_ics content) ()
-  | meth ->
-    Cohttp_lwt_unix.Server.respond_error ~status:`Method_not_allowed
-    ~body:(Printf.sprintf "Method %s is not suported" (Cohttp.Code.string_of_method meth)) ()
+(** Fait une requête à l'api churros et transforme le résultat en ICS
+    @param token Some <churros_token> pour obtenir le calendrier d'un user ou
+    None pour obtenir le calendrier des événements publics
+ *)
+let get_calendar_content token =
+  let headers =
+    let h = Cohttp.Header.init_with "Content-Type" "application/json" in
+    match token with
+    | None -> h
+    | Some churros_token ->
+        Cohttp.Header.add h "Authorization"
+          (Printf.sprintf "Bearer %s" churros_token)
   in
-  Cohttp_lwt_unix.Server.create ~timeout:20 ~mode:(`TCP (`Port 8080)) (Cohttp_lwt_unix.Server.make ~callback ())
+  let%lwt _, churros_response_body =
+    Cohttp_lwt_unix.Client.post ~headers
+      ~body:(Cohttp_lwt.Body.of_string (req_body graphql))
+      (Uri.of_string churros_graphql_url)
+  in
+  Cohttp_lwt.Body.to_string churros_response_body >>= fun s ->
+  Lwt.return (json_txt_to_ics s)
+
+let server =
+  let callback _ req _ =
+    match Cohttp_lwt_unix.Request.meth req with
+    | `GET -> (
+        match Uri.get_query_param (Cohttp_lwt_unix.Request.uri req) "user" with
+        | Some user -> (
+            Persistence.get_user_calendar user >>= function
+            | Ok body ->
+                Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+            | Error _ ->
+                print_endline "Error: failed to query calendar id";
+                Cohttp_lwt_unix.Server.respond_error
+                  ~status:`Internal_server_error ~body:"Internal server error"
+                  ())
+        | None -> (
+            let request_path = Cohttp_lwt_unix.Request.uri req |> Uri.path in
+            match String.split_on_char '/' request_path with
+            | [ ""; "calendars"; "public" ] ->
+                let%lwt body = get_calendar_content None in
+                Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+            | [ ""; "calendars"; calendar_uid ] -> (
+                let%lwt token =
+                  Persistence.get_token_from_calendar_uid calendar_uid
+                in
+                match token with
+                | Ok token ->
+                    (* start the first request in parallel for faster result *)
+                    let body = get_calendar_content (Some token) in
+                    let%lwt test_token = verify_churros_token token in
+                    if test_token then
+                      body >>= fun body ->
+                      Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+                    else
+                      Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized
+                        ~body:
+                          "Failed to authenticate to churros (token invalid), \
+                           you must register a new token"
+                        ()
+                | Error `Calendar_does_not_exist ->
+                    Cohttp_lwt_unix.Server.respond_error ~status:`Not_found
+                      ~body:"Not found" ()
+                | Error `No_saved_token_for_user ->
+                    Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized
+                      ~body:
+                        "You didn't gave us the permission to connect to \
+                         churros yet, you must register a churros token first"
+                      ()
+                | Error `Internal_database_error
+                | Error `Connection_database_error ->
+                    print_endline "Error: failed to query churros token";
+                    Cohttp_lwt_unix.Server.respond_error
+                      ~status:`Internal_server_error
+                      ~body:"Internal server error" ())
+            | _ ->
+                Cohttp_lwt_unix.Server.respond_error ~status:`Not_found
+                  ~body:"Not found" ()))
+    | meth ->
+        Cohttp_lwt_unix.Server.respond_error ~status:`Method_not_allowed
+          ~body:
+            (Printf.sprintf "Method %s is not suported"
+               (Cohttp.Code.string_of_method meth))
+          ()
+  in
+  Cohttp_lwt_unix.Server.create ~timeout
+    ~mode:(`TCP (`Port port))
+    (Cohttp_lwt_unix.Server.make ~callback ())
 
 let () = ignore (Lwt_main.run server)
+(* LA SUITE EST NON EXÉCUTÉE CAR BLOQUANT *)
+
+(* let () = print_endline s *)
+(* let () =
+   Persistence.main () |> function
+   | Ok () -> print_endline "everithing fine"
+   | Error `Internal_database_error -> print_endline "erreur interne"
+   | Error `Connection_database_error -> print_endline "probleme de connexion"
+*)
+
+(*
+let () =
+  let user = "pisentt" and token = "mon_super_token" in
+  Persistence.ensure_tables_exist () >=? fun () ->
+  Persistence.register_user_token user token |> function
+  | Ok () | Error `Token_already_exist ->
+      Persistence.get_user_calendar user >=? print_endline
+  | Error `Internal_database_error | Error `Connection_database_error ->
+      failwith "fatal error encountered during execution"
+*)
+
+let () = print_endline "end"
