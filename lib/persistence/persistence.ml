@@ -90,15 +90,14 @@ let handle_caqti_error (err : Caqti_error.t) =
      - creation_date, the date of the creation of the row
      *)
 let ensure_tables_exist () =
-  Lwt_main.run
-    (Caqti_lwt_unix.with_connection
-       (Uri.of_string (Queries.get_uri ()))
-       (fun db ->
-         Queries.ensure_calendars_table db >>=? fun () ->
-         Queries.ensure_tokens_table db)
-     >>= function
-     | Ok () -> Lwt.return (Ok ())
-     | Error (#Caqti_error.t as err) -> handle_caqti_error err)
+  Caqti_lwt_unix.with_connection
+    (Uri.of_string (Queries.get_uri ()))
+    (fun db ->
+      Queries.ensure_calendars_table db >>=? fun () ->
+      Queries.ensure_tokens_table db)
+  >>= function
+  | Ok () -> Lwt.return (Ok ())
+  | Error (#Caqti_error.t as err) -> handle_caqti_error err
 
 (** Get one churros token for the user owning the calendar which uid is calendar_uid.
     @param calendar_uid uid of the calendar for which we need a churros token
@@ -116,15 +115,14 @@ let get_token_from_calendar_uid calendar_uid =
     | Ok None -> Lwt.return (Error `Calendar_does_not_exist)
     | Error err -> Lwt.return (Error err)
   in
-  Lwt_main.run
-    (Caqti_lwt_unix.with_connection (Uri.of_string (Queries.get_uri ())) aux
-     >>= function
-     | Ok token -> Lwt.return (Ok token)
-     | Error `Calendar_does_not_exist ->
-         Lwt.return (Error `Calendar_does_not_exist)
-     | Error `No_saved_token_for_user ->
-         Lwt.return (Error `No_saved_token_for_user)
-     | Error (#Caqti_error.t as err) -> handle_caqti_error err)
+  Caqti_lwt_unix.with_connection (Uri.of_string (Queries.get_uri ())) aux
+  >>= function
+  | Ok token -> Lwt.return (Ok token)
+  | Error `Calendar_does_not_exist ->
+      Lwt.return (Error `Calendar_does_not_exist)
+  | Error `No_saved_token_for_user ->
+      Lwt.return (Error `No_saved_token_for_user)
+  | Error (#Caqti_error.t as err) -> handle_caqti_error err
 
 (** get the calendar uid for a user, if it does not exist, a new calendar
     will be created
@@ -145,27 +143,25 @@ let get_user_calendar churros_uid =
           max_number_retries_on_collision
     | Error err -> Lwt.return (Error err)
   in
-  Lwt_main.run
-    (Caqti_lwt_unix.with_connection (Uri.of_string (Queries.get_uri ())) aux
-     >>= function
-     | Ok calendar_uid -> Lwt.return (Ok calendar_uid)
-     | Error (#Caqti_error.t as err) -> handle_caqti_error err)
+  Caqti_lwt_unix.with_connection (Uri.of_string (Queries.get_uri ())) aux
+  >>= function
+  | Ok calendar_uid -> Lwt.return (Ok calendar_uid)
+  | Error (#Caqti_error.t as err) -> handle_caqti_error err
 
 (** register a new token for an user to connect to churros as the user
     @param churros_uid the user that own the token
     @param churros_token the token that allow to connect as the user to churros
  *)
 let register_user_token churros_uid churros_token =
-  Lwt_main.run
-    (Caqti_lwt_unix.with_connection
-       (Uri.of_string (Queries.get_uri ()))
-       (fun db -> Queries.reg_token db churros_uid churros_token)
-     >>= function
-     | Ok () -> Lwt.return (Ok ())
-     | Error (#Caqti_error.t as err) ->
-         if is_unique_violation_error err then
-           Lwt.return (Error `Token_already_exist)
-         else handle_caqti_error err)
+  Caqti_lwt_unix.with_connection
+    (Uri.of_string (Queries.get_uri ()))
+    (fun db -> Queries.reg_token db churros_uid churros_token)
+  >>= function
+  | Ok () -> Lwt.return (Ok ())
+  | Error (#Caqti_error.t as err) ->
+      if is_unique_violation_error err then
+        Lwt.return (Error `Token_already_exist)
+      else handle_caqti_error err
 
 (*
 let report_error = function
