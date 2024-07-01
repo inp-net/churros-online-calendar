@@ -40,7 +40,7 @@ module Q = struct
       CREATE TABLE IF NOT EXISTS calendars (
         churros_uid VARCHAR(50) NOT NULL PRIMARY KEY, 
         calendar_uid VARCHAR (50) NOT NULL UNIQUE,
-        last_access_date DATE NOT NULL DEFAULT CURRENT_DATE
+        last_access_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     |eos}
 
@@ -50,7 +50,7 @@ module Q = struct
       CREATE TABLE IF NOT EXISTS tokens (
         churros_uid VARCHAR (50) NOT NULL,
         churros_token VARCHAR(50) NOT NULL PRIMARY KEY, 
-        creation_date DATE NOT NULL DEFAULT CURRENT_DATE
+        creation_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     |eos}
 
@@ -78,8 +78,8 @@ module Q = struct
 
   let update_calendar_last_access_date =
     (string ->. unit)
-    @@ "UPDATE calendars SET last_access_date = getdate() WHERE calendar_uid = \
-        ?"
+    @@ "UPDATE calendars SET last_access_date = CURRENT_TIMESTAMP WHERE \
+        calendar_uid = ?"
 end
 
 (* Db.exec runs a statement which must not return any rows.  Errors are
@@ -136,7 +136,7 @@ let select_user_from_calendar (module Db : Caqti_lwt.CONNECTION) calendar_uid =
     @return Some token if at least one token exist or None if no token exist
  *)
 let select_token (module Db : Caqti_lwt.CONNECTION) churros_uid =
-  Db.find_opt Q.select_user_from_calendar churros_uid
+  Db.find_opt Q.select_token churros_uid
 
 (** update last_access_date value for the calendar passed in parameter with current date
     @param calendar_uid the calendar to update
