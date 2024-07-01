@@ -43,6 +43,7 @@
               ppxlib
               menhirLib
               sedlex
+              lwt_ppx
               cohttp-lwt-unix
               caqti-lwt
               caqti-driver-sqlite3
