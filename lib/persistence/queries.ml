@@ -84,26 +84,57 @@ end
 
 (* Db.exec runs a statement which must not return any rows.  Errors are
  * reported as exceptions. *)
+
+(** create the table of calendars if it does not exist yet *)
 let ensure_calendars_table (module Db : Caqti_lwt.CONNECTION) =
   Db.exec Q.ensure_calendars_table ()
 
+(** create the table of tokens if it does not exist yet *)
 let ensure_tokens_table (module Db : Caqti_lwt.CONNECTION) =
   Db.exec Q.ensure_tokens_table ()
 
+(** query to register a calendar to an user 
+    @param db a connection to the database
+    @param churros_uid the owner of the new calendar (must be a new user)
+    @param calendar_uid the uid of the new calendar (must be a new uid)
+    @return Error err if the churros_uid is not unique or the calendar_uid is not unique
+    or another database error, Ok () if the request was successfull
+ *)
 let reg_calendar (module Db : Caqti_lwt.CONNECTION) churros_uid calendar_uid =
   Db.exec Q.reg_calendar (churros_uid, calendar_uid)
 
+(** query to register a token to an user 
+    @param db a connection to the database
+    @param churros_uid the owner of the new token
+    @param churros_token the token of the new churros connection (must be a new token)
+    @return Error err if the churros_token is not unique
+    or another database error, Ok () if the request was successfull
+ *)
 let reg_token (module Db : Caqti_lwt.CONNECTION) churros_uid churros_token =
   Db.exec Q.reg_token (churros_uid, churros_token)
 
 (* Db.find runs a query which must return at most one row.  The result is a
  * option, since it's common to seach for entries which don't exist. *)
+
+(** query to get the calendar_uid for a user
+    @param db a connection to the database
+    @param churros_uid the user who request a calendar
+    @return Some uid if a calendar exist or None
+ *)
 let select_calendar (module Db : Caqti_lwt.CONNECTION) churros_uid =
   Db.find_opt Q.select_calendar churros_uid
 
+(** get the owner of a calandar
+    @param calendar_uid the calendar for which we search the owner
+    @return Some churros_uid if the calendar exist or None
+ *)
 let select_user_from_calendar (module Db : Caqti_lwt.CONNECTION) calendar_uid =
   Db.find_opt Q.select_user_from_calendar calendar_uid
 
+(** get the last created token for an user
+    @param churros_uid the user who request a token to connect to churros
+    @return Some token if at least one token exist or None if no token exist
+ *)
 let select_token (module Db : Caqti_lwt.CONNECTION) churros_uid =
   Db.find_opt Q.select_user_from_calendar churros_uid
 
