@@ -26,6 +26,8 @@ type error_t =
     (** error raised by caqti, might indicate an error in the program, not user's fault *)
   | `Connection_database_error
     (** cannot connect to the database, might indicate an error in configuration, probably user's fault *)
+  | `Token_already_exist
+    (** the same token as already been registered to an user in the tokens table *)
   ]
 (** Error that can be send back by the module *)
 
@@ -46,7 +48,11 @@ val get_user_calendar :
 val register_user_token :
   string ->
   string ->
-  (unit, [> `Connection_database_error | `Internal_database_error ]) result
+  ( unit,
+    [> `Connection_database_error
+    | `Internal_database_error
+    | `Token_already_exist ] )
+  result
 (** register a new token for an user to connect to churros as the user
     @param churros_uid the user that own the token
     @param churros_token the token that allow to connect as the user to churros

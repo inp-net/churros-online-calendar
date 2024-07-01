@@ -11,12 +11,31 @@ type error_t =
   [ `Calendar_does_not_exist
   | `No_saved_token_for_user
   | `Internal_database_error
-  | `Connection_database_error ]
+  | `Connection_database_error
+  | `Token_already_exist ]
 
 (** operator that execute the next function only if the previous one return Ok
     and pass the result to the new function if so *)
 let ( >>=? ) m f =
   m >>= function Ok x -> f x | Error err -> Lwt.return (Error err)
+
+(** test if the caqti error is an error of unicity (Unique_violation) or else
+  @param err the error returned by previous database operation
+  @return true if the error is un collision of two identical value where
+  unique constraint is set, false otherwise
+  *)
+let is_unique_violation_error = function
+  | `Request_failed err -> (
+      match Caqti_error.cause (`Request_failed err) with
+      | `Unique_violation -> true
+      | _ -> false)
+  | `Response_failed err -> (
+      match (Caqti_error.cause (`Response_failed err), Uri.scheme err.uri) with
+      | `Integrity_constraint_violation__don't_match, Some "sqlite3" ->
+          (* The driver sqlite3 is less precise on error, so we are more permissive *)
+          true
+      | _ -> false)
+  | _ -> false
 
 (** Run a fonction at most (number_retries + 1) times until there is not an SQL
     unique_constraint error 
@@ -33,20 +52,11 @@ let try_while_unique_violation f number_tries =
     | 0 -> Lwt.return response
     | retries_lefts -> (
         match response with
-        | Error (`Request_failed err) -> (
-            match Caqti_error.cause (`Request_failed err) with
-            | `Unique_violation ->
-                f (retries_lefts - 1) >>= fun x -> aux x (retries_lefts - 1)
-            | _ -> Lwt.return response)
-        | Error (`Response_failed err) -> (
-            match
-              (Caqti_error.cause (`Response_failed err), Uri.scheme err.uri)
-            with
-            | `Integrity_constraint_violation__don't_match, Some "sqlite3" ->
-                (* The driver sqlite3 is less precise on error, so we are more permissive *)
-                f (retries_lefts - 1) >>= fun x -> aux x (retries_lefts - 1)
-            | _ -> Lwt.return response)
-        | _ -> Lwt.return response)
+        | Error err ->
+            if is_unique_violation_error err then
+              f (retries_lefts - 1) >>= fun x -> aux x (retries_lefts - 1)
+            else Lwt.return response
+        | Ok _ -> Lwt.return response)
   in
   f (number_tries - 1) >>= fun x -> aux x (number_tries - 1)
 
@@ -152,7 +162,10 @@ let register_user_token churros_uid churros_token =
        (fun db -> Queries.reg_token db churros_uid churros_token)
      >>= function
      | Ok () -> Lwt.return (Ok ())
-     | Error (#Caqti_error.t as err) -> handle_caqti_error err)
+     | Error (#Caqti_error.t as err) ->
+         if is_unique_violation_error err then
+           Lwt.return (Error `Token_already_exist)
+         else handle_caqti_error err)
 
 (*
 let report_error = function
