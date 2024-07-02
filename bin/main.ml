@@ -174,6 +174,23 @@ let json_txt_to_ics s =
   Option.get (Lexer.from_string Parser.file s)
   |> Calendar.ics_of_json |> Ics.print_ics
 
+(* Initialize the Logs library *)
+let setup_logging () =
+  (* Create a reporter that outputs to stdout *)
+  let reporter = Logs_fmt.reporter () in
+  (* Set the Logs reporter to the one we created *)
+  Logs.set_reporter reporter;
+  (* Set the log level to Debug *)
+  Logs.set_level (Some Logs.Warning)
+
+let main () =
+  (* Call setup_logging to initialize logging *)
+  setup_logging ();
+  (* Example of logging a debug message *)
+  Logs_lwt.debug (fun m -> m "This is a debug message") >>= fun () ->
+  (* Your main program logic here *)
+  Lwt.return ()
+
 (** Fait une requête à l'api churros et transforme le résultat en ICS
     @param token Some <churros_token> pour obtenir le calendrier d'un user ou
     None pour obtenir le calendrier des événements publics
@@ -277,6 +294,7 @@ let server =
                (Cohttp.Code.string_of_method meth))
           ()
   in
+  main () >>= fun () ->
   Cohttp_lwt_unix.Server.create ~timeout
     ~mode:(`TCP (`Port port))
     (Cohttp_lwt_unix.Server.make ~callback ())
