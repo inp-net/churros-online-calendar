@@ -28,6 +28,7 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgsFor.${system};
+          selfpkgs = self.packages.${system};
         in
         {
 
@@ -53,6 +54,29 @@
               base64
             ];
           };
+
+          docker = pkgs.dockerTools.buildLayeredImage {
+            name = "churros-online-calendar";
+            tag = "latest";
+            contents = [ pkgs.cacert selfpkgs.churros-online-calendar ];
+            config.Cmd = [ "${selfpkgs.churros-online-calendar}/bin/churros_online_calendar" ];
+            # IMPORTANT: MAKE HTTPS WORK
+            config.Env =
+              [
+                "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+              ];
+            # IMPORTANT: ocaml cohttp needs /etc/services, see https://github.com/mirage/ocaml-cohttp/issues/675
+            enableFakechroot = true;
+            fakeRootCommands = ''
+              mkdir -p /etc
+              cat <<EOF > /etc/services
+              https            443/tcp    # http protocol over TLS/SSL
+              https            443/udp    # http protocol over TLS/SSL
+              https            443/sctp   # HTTPS
+              EOF
+            '';
+          };
+
         });
 
       # Add dependencies that are only needed for development
