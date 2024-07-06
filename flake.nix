@@ -27,12 +27,7 @@
       # Provide some binary packages for selected system types.
       packages = forAllSystems (system:
         let
-          pkgs = nixpkgsFor.${system};
-          selfpkgs = self.packages.${system};
-        in
-        {
-
-          churros-online-calendar = pkgs.ocamlPackages.buildDunePackage {
+          churros-online-calendar = pkgs: pkgs.ocamlPackages.buildDunePackage {
             inherit version;
             pname = "churros_online_calendar";
             # Tell nix that the source of the content is in the root
@@ -55,28 +50,50 @@
             ];
           };
 
-          docker = pkgs.dockerTools.buildLayeredImage {
-            name = "churros-online-calendar";
-            tag = "latest";
-            contents = [ pkgs.cacert selfpkgs.churros-online-calendar ];
-            config.Cmd = [ "${selfpkgs.churros-online-calendar}/bin/churros_online_calendar" ];
-            # IMPORTANT: MAKE HTTPS WORK
-            config.Env =
-              [
-                "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-              ];
-            # IMPORTANT: ocaml cohttp needs /etc/services, see https://github.com/mirage/ocaml-cohttp/issues/675
-            enableFakechroot = true;
-            fakeRootCommands = ''
-              mkdir -p /etc
-              cat <<EOF > /etc/services
-              https            443/tcp    # http protocol over TLS/SSL
-              https            443/udp    # http protocol over TLS/SSL
-              https            443/sctp   # HTTPS
-              EOF
-            '';
-          };
+          dockerbuilder = buildfun: pkgs:
+            let
+              churros-online-calendar-package = churros-online-calendar pkgs;
+            in
+            buildfun {
+              name = "churros-online-calendar";
+              tag = "latest";
+              contents = [ pkgs.cacert churros-online-calendar-package ];
+              config.Cmd = [ "${churros-online-calendar-package}/bin/churros_online_calendar" ];
+              # IMPORTANT: MAKE HTTPS WORK
+              config.Env =
+                [
+                  "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+                ];
+              # IMPORTANT: ocaml cohttp needs /etc/services, see https://github.com/mirage/ocaml-cohttp/issues/675
+              enableFakechroot = true;
+              fakeRootCommands = ''
+                mkdir -p /etc
+                cat <<EOF > /etc/services
+                https            443/tcp    # http protocol over TLS/SSL
+                https            443/udp    # http protocol over TLS/SSL
+                https            443/sctp   # HTTPS
+                EOF
+              '';
+            };
+        in
+        let
+          pkgs = nixpkgsFor.${system};
+        in
+        {
+          # Build the application bin using glibc
+          churros-online-calendar = churros-online-calendar pkgs;
+          churros-online-calendar-musl = churros-online-calendar pkgs.pkgsMusl;
 
+          # Build docker compressed image using glibc
+          docker-image = dockerbuilder pkgs.dockerTools.buildLayeredImage pkgs;
+          # Build script to generate uncompressed docker image (use less space in nix store)
+          docker-stream = dockerbuilder pkgs.dockerTools.streamLayeredImage pkgs;
+
+          # Build docker compressed image using musl (resulting in smaller image
+          # but much longer build as not all packages are available in nixos official cache)
+          docker-image-musl = dockerbuilder pkgs.dockerTools.buildLayeredImage pkgs.pkgsMusl;
+          # Build script to generate uncompressed docker image using musl
+          docker-stream-musl = dockerbuilder pkgs.dockerTools.streamLayeredImage pkgs.pkgsMusl;
         });
 
       # Add dependencies that are only needed for development
@@ -86,7 +103,7 @@
         in
         {
           default = pkgs.mkShell {
-            buildInputs = with pkgs; [ nixd ocaml dune_3 ocamlformat ocamlPackages.ocaml-lsp ]
+            buildInputs = (with pkgs; [ nixd ocaml dune_3 ocamlformat ocamlPackages.ocaml-lsp ])
               ++ (with self.packages.${system}.churros-online-calendar; nativeBuildInputs ++ buildInputs);
           };
         });
