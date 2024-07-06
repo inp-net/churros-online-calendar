@@ -1,0 +1,27 @@
+image: docker.nix-community.org/nixpkgs/cachix-flakes
+
+stages:
+  - build
+  - push
+
+cache:
+  paths:
+    - /nix/store
+
+build:
+  stage: build
+  script:
+    - cachix use joblade
+    - nix build .#docker-stream-musl
+    - ./result > docker-image.tar
+  artifacts:
+    paths:
+      - docker-image.tar
+
+push:
+  stage: push
+  script:
+    - nix profile install nixpkgs#skopeo
+    - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://docker.io/joblade/churros-online-calendar:latest"
+  only:
+    - main
