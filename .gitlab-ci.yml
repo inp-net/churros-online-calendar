@@ -22,6 +22,6 @@ push:
   stage: push
   script:
     - nix profile install nixpkgs#skopeo
-    - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://docker.io/joblade/churros-online-calendar:latest"
+    - echo "$DOCKER_PASSWORD" | skopeo --insecure-policy copy --dest-creds "joblade:$(cat)" "docker-archive:docker-image.tar" "docker://docker.io/joblade/churros-online-calendar:latest"
   only:
     - main
