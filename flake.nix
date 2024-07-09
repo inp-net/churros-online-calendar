@@ -1,5 +1,5 @@
 {
-  description = "A simple Go package";
+  description = "A program to export churros events to an online calendar.";
 
   # Nixpkgs / NixOS version to use.
   inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
