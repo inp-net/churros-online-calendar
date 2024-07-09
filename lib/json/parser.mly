@@ -36,6 +36,7 @@ string:
   | s = STRING; { s }
 
 json_list:
+  | { [ ] }
   | j = json; { [j] }
   | j = json; COMMA; l = json_list; { j :: l }
 
