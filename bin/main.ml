@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-let events = 10
+let events = 20
 let timeout = 20
 let port = 8080
 let churros_graphql_url = "https://churros.inpt.fr/graphql"
