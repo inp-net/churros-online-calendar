@@ -221,7 +221,8 @@ let server =
         | [ ""; "calendars"; "public" ] ->
             let%lwt body = get_calendar_content None in
             Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
-        | [ ""; "calendars"; calendar_uid ] -> (
+        | "" :: "calendars" :: calendar_uid :: _ -> (
+            (* This match every url that begin with /calendars/<calendar_uid> *)
             let%lwt token =
               Persistence.get_token_from_calendar_uid calendar_uid
             in
