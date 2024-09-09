@@ -220,7 +220,9 @@ let server =
         match String.split_on_char '/' request_path with
         | [ ""; "calendars"; "public" ] ->
             let%lwt body = get_calendar_content None in
-            Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+            Cohttp_lwt_unix.Server.respond_string
+              ~headers:(Cohttp.Header.init_with "Content-Type" "text/calendar")
+              ~status:`OK ~body ()
         | "" :: "calendars" :: calendar_uid :: _ -> (
             (* This match every url that begin with /calendars/<calendar_uid> *)
             let%lwt token =
@@ -233,7 +235,10 @@ let server =
                 let%lwt test_token = verify_churros_token token in
                 if test_token then
                   body >>= fun body ->
-                  Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+                  Cohttp_lwt_unix.Server.respond_string
+                    ~headers:
+                      (Cohttp.Header.init_with "Content-Type" "text/calendar")
+                    ~status:`OK ~body ()
                 else
                   Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized
                     ~body:
