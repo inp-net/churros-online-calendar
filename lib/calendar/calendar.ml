@@ -38,9 +38,16 @@ let rec ics_of_json (json : Json.t_json) : Ics.t_ics =
             :: { key = "VERSION"; value = "2.0" }
             :: { key = "CALSCALE"; value = "GREGORIAN" }
             :: (h_value @ ending))
-      | "uid" -> (
+      | "id" -> (
           match h.value with
-          | Json.J_String uid -> Ics.ICS ({ key = "UID"; value = uid } :: tail)
+          | Json.J_String uid ->
+              Ics.ICS
+                ({
+                   key = "UID";
+                   (* escape ':' character because I'm not sure if it can cause problems *)
+                   value = String.map (function ':' -> '-' | c -> c) uid;
+                 }
+                :: tail)
           | _ -> raise (Invalid_format "Invalid UID format"))
       | "startsAt" -> (
           match h.value with

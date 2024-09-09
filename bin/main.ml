@@ -11,7 +11,7 @@ let graphql =
   {
     events(last: %i) {
       nodes {
-        uid
+        id
         title
         description
         startsAt
