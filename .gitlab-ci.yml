@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json
+
 image: docker.nix-community.org/nixpkgs/cachix-flakes
 
 stages:
@@ -11,7 +13,7 @@ cache:
 build:
   stage: build
   script:
-    - cachix use joblade
+    - cachix use net7toulouse
     - nix build .#docker-stream-musl
     - ./result > docker-image.tar
   artifacts:
@@ -22,6 +24,7 @@ push:
   stage: push
   script:
     - nix profile install nixpkgs#skopeo
-    - echo "$DOCKER_PASSWORD" | skopeo --insecure-policy copy --dest-creds "joblade:$(cat)" "docker-archive:docker-image.tar" "docker://docker.io/joblade/churros-online-calendar:latest"
+    - skopeo login harbor.k8s.inpt.fr -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
+    - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://harbor.k8s.inpt.fr/net7_public/churros-online-calendar:latest"
   only:
     - main
