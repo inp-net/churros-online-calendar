@@ -264,6 +264,10 @@ let server =
             Cohttp_lwt_unix.Server.respond_error ~status:`Not_found
               ~body:"Not found" ())
     | `POST -> (
+        let headers =
+          (* The CORS header is needed to make the api publicly accessible *)
+          Cohttp.Header.init_with "Access-Control-Allow-Origin" "*"
+        in
         let request_path = Cohttp_lwt_unix.Request.uri req |> Uri.path in
         match String.split_on_char '/' request_path with
         | [ ""; "register" ] -> (
@@ -274,24 +278,24 @@ let server =
                 | Ok () | Error `Token_already_exist -> (
                     Persistence.get_user_calendar churros_uid >>= function
                     | Ok body ->
-                        Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body
-                          ()
+                        Cohttp_lwt_unix.Server.respond_string ~headers
+                          ~status:`OK ~body ()
                     | Error _ ->
                         print_endline "Error: failed to query calendar id";
-                        Cohttp_lwt_unix.Server.respond_error
+                        Cohttp_lwt_unix.Server.respond_error ~headers
                           ~status:`Internal_server_error
                           ~body:"Internal server error" ())
                 | Error `Internal_database_error
                 | Error `Connection_database_error ->
                     print_endline "Error: failed to query churros token";
-                    Cohttp_lwt_unix.Server.respond_error
+                    Cohttp_lwt_unix.Server.respond_error ~headers
                       ~status:`Internal_server_error
                       ~body:"Internal server error" ())
             | None ->
                 Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized
-                  ~body:"Invalid churros token" ())
+                  ~headers ~body:"Invalid churros token" ())
         | _ ->
-            Cohttp_lwt_unix.Server.respond_error ~status:`Not_found
+            Cohttp_lwt_unix.Server.respond_error ~status:`Not_found ~headers
               ~body:"Not found" ())
     | meth ->
         Cohttp_lwt_unix.Server.respond_error ~status:`Method_not_allowed
