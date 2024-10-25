@@ -105,7 +105,7 @@
         in
         {
           default = pkgs.mkShell {
-            buildInputs = (with pkgs; [ nixd ocaml dune_3 ocamlformat ocamlPackages.ocaml-lsp ])
+            buildInputs = (with pkgs; [ nixd ocaml dune_3 ocamlformat ocamlPackages.ocaml-lsp ocamlPackages.utop ])
               ++ (with self.packages.${system}.churros-online-calendar; nativeBuildInputs ++ buildInputs);
           };
         });
