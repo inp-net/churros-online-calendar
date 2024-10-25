@@ -57,7 +57,7 @@ let _ =
     @param churros_token le token dont on cherche l'user
     @return Some churros_uid ou None si le token est invalide
  *)
-let request_churros_uid churros_token =
+let request_churros_uid (churros_token : string) : string option Lwt.t =
   let headers =
     let h = Cohttp.Header.init_with "Content-Type" "application/json" in
     Cohttp.Header.add h "Authorization"
@@ -76,24 +76,17 @@ let request_churros_uid churros_token =
     Cohttp_lwt_unix.Client.post ~headers ~body
       (Uri.of_string churros_graphql_url)
   in
-  Cohttp_lwt.Body.to_string churros_response_body >>= fun s ->
-  match Option.get (Lexer.from_string Parser.file s) with
-  | Json.J_Object
-      [
-        {
-          key = "data";
-          value =
-            J_Object
-              [
-                {
-                  key = "me";
-                  value =
-                    J_Object [ { key = "uid"; value = J_String churros_uid } ];
-                };
-              ];
-        };
-      ] ->
-      Lwt.return (Some churros_uid)
+  let ( --> ) a b = Yojson.Safe.Util.member b a in
+  Cohttp_lwt.Body.to_string churros_response_body >>= fun json ->
+  try
+    Lwt.return
+      (Some
+         (Yojson.Safe.from_string json --> "data" --> "me" --> "uid"
+         |> Yojson.Safe.Util.to_string))
+  with
+  | Yojson.Json_error _ | Yojson.Safe.Util.Type_error _ ->
+      Logs_lwt.warn (fun m -> m "Failed to parse /me response, invalid token ?")
+      >|= fun () -> None
   | _ -> Lwt.return None
 
 (** Fait une requête à l'api churros sur /me pour vérifier que le token est
@@ -105,10 +98,6 @@ let verify_churros_token churros_token =
   request_churros_uid churros_token >>= function
   | Some _ -> Lwt.return true
   | None -> Lwt.return false
-
-let json_txt_to_ics s =
-  Option.get (Lexer.from_string Parser.file s)
-  |> Calendar.ics_of_json |> Ics.print_ics
 
 (* Initialize the Logs library *)
 let setup_logging () =
@@ -145,8 +134,10 @@ let get_calendar_content token =
       ~body:(Cohttp_lwt.Body.of_string (req_body graphql))
       (Uri.of_string churros_graphql_url)
   in
-  Cohttp_lwt.Body.to_string churros_response_body >>= fun s ->
-  Lwt.return (json_txt_to_ics s)
+  Cohttp_lwt.Body.to_string churros_response_body >|= fun json_txt ->
+  match Calendar.ics_of_json json_txt with
+  | Ok ics -> Ok ics
+  | Error () -> Error ()
 
 let server =
   let callback _ req req_body =
@@ -154,11 +145,23 @@ let server =
     | `GET -> (
         let request_path = Cohttp_lwt_unix.Request.uri req |> Uri.path in
         match String.split_on_char '/' request_path with
-        | [ ""; "calendars"; "public" ] ->
-            let%lwt body = get_calendar_content None in
-            Cohttp_lwt_unix.Server.respond_string
-              ~headers:(Cohttp.Header.init_with "Content-Type" "text/calendar")
-              ~status:`OK ~body ()
+        | [ ""; "calendars"; "public" ] -> (
+            get_calendar_content None >>= function
+            | Ok body ->
+                Cohttp_lwt_unix.Server.respond_string
+                  ~headers:
+                    (Cohttp.Header.init_with "Content-Type"
+                       "text/calendar;charset=utf-8;")
+                  ~status:`OK ~body ()
+            | Error () ->
+                Logs_lwt.warn (fun m ->
+                    m
+                      "Failed to retrieve ics calendar for public events. \
+                       Invalid json response to /events ?")
+                >>= fun () ->
+                Cohttp_lwt_unix.Server.respond_error
+                  ~status:`Internal_server_error ~body:"Internal server error"
+                  ())
         | "" :: "calendars" :: calendar_uid :: _ -> (
             (* This match every url that begin with /calendars/<calendar_uid> *)
             let%lwt token =
@@ -170,12 +173,26 @@ let server =
                 let body = get_calendar_content (Some token) in
                 let%lwt test_token = verify_churros_token token in
                 if test_token then
-                  body >>= fun body ->
-                  Cohttp_lwt_unix.Server.respond_string
-                    ~headers:
-                      (Cohttp.Header.init_with "Content-Type" "text/calendar")
-                    ~status:`OK ~body ()
+                  body >>= function
+                  | Ok body ->
+                      Cohttp_lwt_unix.Server.respond_string
+                        ~headers:
+                          (Cohttp.Header.init_with "Content-Type"
+                             "text/calendar;charset=utf-8;")
+                        ~status:`OK ~body ()
+                  | Error () ->
+                      Logs_lwt.warn (fun m ->
+                          m
+                            "Failed to retrieve ics calendar even if token \
+                             seems valid. Invalid json response to /events ?")
+                      >>= fun () ->
+                      Cohttp_lwt_unix.Server.respond_error
+                        ~status:`Internal_server_error
+                        ~body:"Internal server error" ()
                 else
+                  Logs_lwt.warn (fun m ->
+                      m "token invalid, you must register a new token")
+                  >>= fun () ->
                   Cohttp_lwt_unix.Server.respond_error ~status:`Unauthorized
                     ~body:
                       "Failed to authenticate to churros (token invalid), you \
