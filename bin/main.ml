@@ -40,15 +40,6 @@ let req_body graphql =
     |}
     (String.escaped graphql)
 
-(*
-let () =
-  let body = Lwt_main.run body in
-  let parsed = Option.get (Lexer.from_string Parser.file body) in
-  let file = open_out "churros_calendar.ics" in
-  Printf.fprintf file "%s" (Ics.print_ics (Calendar.ics_of_json parsed));
-  close_out file
-*)
-
 let _ =
   Persistence.ensure_tables_exist () >>= function
   | Ok () -> Lwt_io.eprintl "database connection ok"
@@ -60,62 +51,6 @@ let _ =
         "internal database error, if the error persist, try contact the \
          developper"
       >|= fun () -> exit 1
-
-(*
-
-==> VERSION COMPLIQUÉE ET PEU ROBUSTE CAR PARSE UNE STRING ECRITE EN LANGUAGE NATUREL
-
-(** Fait une requête à l'api churros sur /me pour vérifier que le token est
-    toujours valide
-    @param token le token à vérifier
-    @return true si le token est valide, false otherwise
- *)
-let verify_churros_token churros_token =
-  let headers =
-    let h = Cohttp.Header.init_with "Content-Type" "application/json" in
-    Cohttp.Header.add h "Authorization"
-      (Printf.sprintf "Bearer %s" churros_token)
-  and body =
-    Cohttp_lwt.Body.of_string
-      (req_body {|
-      {
-        me {
-          uid
-        }
-      }
-  |})
-  in
-  let%lwt _, churros_response_body =
-    Cohttp_lwt_unix.Client.post ~headers ~body
-      (Uri.of_string churros_graphql_url)
-  in
-  Cohttp_lwt.Body.to_string churros_response_body >>= fun s ->
-  match Option.get (Lexer.from_string Parser.file s) with
-  | Json.J_Object l ->
-      Lwt.return
-        (not
-           (List.exists
-              (function
-                | Json.{ key = "errors"; value = Json.J_Array errors } ->
-                    List.exists
-                      (function
-                        | Json.J_Object
-                            [
-                              {
-                                key = "message";
-                                value =
-                                  J_String
-                                    "Tu n'es pas autorisé à effectuer cette \
-                                     action.";
-                              };
-                            ] ->
-                            true
-                        | _ -> false)
-                      errors
-                | _ -> false)
-              l))
-  | _ -> Lwt.return true
- *)
 
 (** Fait une requête à l'api churros sur /me pour obtenir l'uid de l'user
     à qui appartient le token (permet également de s'assurer que le token est valide)
