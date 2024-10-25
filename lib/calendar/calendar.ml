@@ -1,5 +1,38 @@
 exception Invalid_format of string
 
+(** Parse a churros event in json format to a native ocaml type *)
+module ChurrosEventParser = struct
+  type t_organizer = { name : string }
+  [@@deriving yojson] [@@yojson.allow_extra_fields]
+
+  type t = {
+    title : string;
+    description : string;
+    startsAt : string;
+    endsAt : string;
+    updatedAt : string;
+    location : string;
+    id : string;
+    organizer : t_organizer;
+  }
+  [@@deriving yojson] [@@yojson.allow_extra_fields]
+  (** Ocaml type for a churros event *)
+
+  (** Parse a json event to type t
+      @param json the yojson object to parse
+      @return Some event if the parsing was successful
+      or None if there is an eror *)
+  let parse json =
+    try Some (t_of_yojson json)
+    with Ppx_yojson_conv_lib__Yojson_conv.Of_yojson_error _ ->
+      print_endline "log error";
+      None
+end
+
+(** Convert churros date format to ics date format
+    @param datetime a timestamp givent by churros api
+    @return an ics compatible timestamp
+ *)
 let change_date_format (datetime : string) : string =
   let date =
     String.split_on_char 'T' datetime |> List.hd |> String.split_on_char '-'
@@ -15,88 +48,59 @@ let change_date_format (datetime : string) : string =
   in
   year ^ month ^ day ^ "T" ^ hour ^ minute ^ second ^ "Z"
 
-let rec ics_of_json (json : Json.t_json) : Ics.t_ics =
-  match json with
-  | Json.J_Object [] -> Ics.ICS []
-  | Json.J_Object (h :: t) -> (
-      let (Ics.ICS tail) =
-        try ics_of_json (Json.J_Object t) with Invalid_format _ -> Ics.ICS []
-      in
-      let (Ics.ICS h_value) =
-        try ics_of_json h.value with Invalid_format _ -> Ics.ICS []
-      in
-      let h_key = h.key in
-      match h_key with
-      | "data" ->
-          let (Ics.ICS ending) =
-            Ics.ICS [ { key = "END"; value = "VCALENDAR" } ]
-          in
-          Ics.ICS
-            ({ key = "BEGIN"; value = "VCALENDAR" }
-            :: { key = "METHOD"; value = "REQUEST" }
-            :: { key = "PRODID"; value = "-//CHURROS" }
-            :: { key = "VERSION"; value = "2.0" }
-            :: { key = "CALSCALE"; value = "GREGORIAN" }
-            :: (h_value @ ending))
-      | "id" -> (
-          match h.value with
-          | Json.J_String uid ->
-              Ics.ICS
-                ({
-                   key = "UID";
-                   (* escape ':' character because I'm not sure if it can cause problems *)
-                   value = String.map (function ':' -> '-' | c -> c) uid;
-                 }
-                :: tail)
-          | _ -> raise (Invalid_format "Invalid UID format"))
-      | "startsAt" -> (
-          match h.value with
-          | Json.J_String date ->
-              Ics.ICS
-                ({ key = "DTSTART"; value = change_date_format date } :: tail)
-          | _ -> raise (Invalid_format "Invalid date format"))
-      | "endsAt" -> (
-          match h.value with
-          | Json.J_String date ->
-              Ics.ICS
-                ({ key = "DTEND"; value = change_date_format date } :: tail)
-          | _ -> raise (Invalid_format "Invalid date format"))
-      | "location" -> (
-          match h.value with
-          | Json.J_String location ->
-              Ics.ICS ({ key = "LOCATION"; value = location } :: tail)
-          | _ -> raise (Invalid_format "Invalid location format"))
-      | "title" -> (
-          match h.value with
-          | Json.J_String title ->
-              Ics.ICS ({ key = "SUMMARY"; value = title } :: tail)
-          | _ -> raise (Invalid_format "Invalid title format"))
-      | "description" -> (
-          match h.value with
-          | Json.J_String description ->
-              Ics.ICS ({ key = "DESCRIPTION"; value = description } :: tail)
-          | _ -> raise (Invalid_format "Invalid description format"))
-      | _ -> Ics.ICS (tail @ h_value)
-      (*Ics.ICS ({ key = h_key; value = "" }::(tail @ h_value))*))
-  | Json.J_Array [] -> Ics.ICS []
-  | Json.J_Array (h :: t) ->
-      let (Ics.ICS tail) =
-        try ics_of_json (Json.J_Array t) with Invalid_format _ -> Ics.ICS []
-      in
-      let (Ics.ICS h_value) =
-        try ics_of_json h with Invalid_format _ -> Ics.ICS []
-      in
-      let (Ics.ICS h_value_with_header) =
-        Ics.ICS
-          ({ key = "BEGIN"; value = "VEVENT" }
-          :: { key = "DTSTAMP"; value = "20240101T000000Z" }
-          :: { key = "CREATED"; value = "20240101T000000Z" }
-          :: { key = "LAST-MODIFIED"; value = "20240621T000000Z" }
-          :: { key = "SEQUENCE"; value = "0" }
-          :: h_value)
-      in
-      let (Ics.ICS tail_with_footer) =
-        Ics.ICS ({ key = "END"; value = "VEVENT" } :: tail)
-      in
-      Ics.ICS (h_value_with_header @ tail_with_footer)
-  | i -> raise (Invalid_format ("Invalid JSON input : " ^ Json.show_t_json i))
+(** Convert a single event to ics
+    @param event the event to convert to ics
+    @return the ics event *)
+let ics_of_event (event : ChurrosEventParser.t) : Ics.t_ics =
+  Ics.ICS
+    [
+      { key = "BEGIN"; value = "VEVENT" };
+      { key = "UID"; value = event.id };
+      { key = "DTSTAMP"; value = change_date_format event.updatedAt };
+      { key = "DTSTART"; value = change_date_format event.startsAt };
+      { key = "DTSTEND"; value = change_date_format event.endsAt };
+      {
+        key = "SUMMARY";
+        value = Printf.sprintf "%s (%s)" event.title event.organizer.name;
+      };
+      { key = "LOCATION"; value = event.location };
+      { key = "DESCRIPTION"; value = event.description };
+      { key = "END"; value = "VEVENT" };
+    ]
+
+let events_json_list (json_txt : string) :
+    (ChurrosEventParser.t list, unit) result =
+  let ( --> ) a b = Yojson.Safe.Util.member b a in
+  try
+    Yojson.Safe.from_string json_txt --> "data" --> "events" --> "nodes"
+    |> Yojson.Safe.Util.to_list
+    |> fun l ->
+    Ok
+      (List.fold_left
+         (fun acc x ->
+           ChurrosEventParser.parse x |> function
+           | None -> acc
+           | Some y -> y :: acc)
+         [] l)
+  with Yojson.Json_error _ | Yojson.Safe.Util.Type_error _ -> Error ()
+
+(** Convert a json string to an Ics
+    @param json_txt the json string
+    @return Ok ics_string if the json is correct or Error () *)
+let ics_of_json (json_txt : string) : (string, 'a) result =
+  match events_json_list json_txt with
+  | Error () -> Error ()
+  | Ok l ->
+      Ok
+        (Ics.flatten
+           (Ics.ICS
+              [
+                { key = "BEGIN"; value = "VCALENDAR" };
+                { key = "METHOD"; value = "REQUEST" };
+                { key = "PRODID"; value = "-//CHURROS" };
+                { key = "VERSION"; value = "2.0" };
+                { key = "CALSCALE"; value = "GREGORIAN" };
+              ]
+            :: List.map ics_of_event l
+           @ [ Ics.ICS [ { key = "END"; value = "VCALENDAR" } ] ])
+        |> Ics.print_ics)
