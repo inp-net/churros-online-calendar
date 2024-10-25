@@ -58,7 +58,7 @@ let ics_of_event (event : ChurrosEventParser.t) : Ics.t_ics =
       { key = "UID"; value = event.id };
       { key = "DTSTAMP"; value = change_date_format event.updatedAt };
       { key = "DTSTART"; value = change_date_format event.startsAt };
-      { key = "DTSTEND"; value = change_date_format event.endsAt };
+      { key = "DTEND"; value = change_date_format event.endsAt };
       {
         key = "SUMMARY";
         value = Printf.sprintf "%s (%s)" event.title event.organizer.name;
