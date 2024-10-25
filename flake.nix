@@ -47,6 +47,8 @@
               mirage-crypto-rng
               mirage-crypto-rng-lwt
               base64
+	      yojson
+	      ppx_yojson_conv
             ];
           };
 

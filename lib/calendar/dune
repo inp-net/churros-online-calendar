@@ -2,6 +2,6 @@
  (name calendar)
  (wrapped false)
  (preprocess
-  (pps ppx_deriving.show))
+  (pps ppx_deriving.show ppx_yojson_conv))
  (modules calendar)
- (libraries json ics))
+ (libraries yojson ics))

@@ -3,4 +3,4 @@
  (name main)
  (preprocess
   (pps lwt_ppx))
- (libraries json http ics calendar persistence lwt cohttp cohttp-lwt-unix))
+ (libraries yojson http ics calendar persistence lwt cohttp cohttp-lwt-unix))
