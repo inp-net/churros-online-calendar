@@ -16,8 +16,9 @@ let graphql =
         description
         startsAt
         endsAt
+        updatedAt
         location
-        group {
+        organizer {
           name
         }
       }
