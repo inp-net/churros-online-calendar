@@ -12,6 +12,7 @@ let graphql =
     events(last: %i) {
       nodes {
         id
+        localID
         title
         description
         startsAt
