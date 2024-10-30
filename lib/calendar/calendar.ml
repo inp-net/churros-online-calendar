@@ -14,6 +14,7 @@ module ChurrosEventParser = struct
     location : string;
     id : string;
     organizer : t_organizer;
+    localID : string;
   }
   [@@deriving yojson] [@@yojson.allow_extra_fields]
   (** Ocaml type for a churros event *)
@@ -64,7 +65,7 @@ let ics_of_event (event : ChurrosEventParser.t) : Ics.t_ics =
         value = Printf.sprintf "%s (%s)" event.title event.organizer.name;
       };
       { key = "LOCATION"; value = event.location };
-      { key = "DESCRIPTION"; value = event.description };
+      { key = "DESCRIPTION"; value = Printf.sprintf "%s\n\n\nPlus d'infos: https://churros.inpt.fr/events/%s" event.description event.localID };
       { key = "END"; value = "VEVENT" };
     ]
 
