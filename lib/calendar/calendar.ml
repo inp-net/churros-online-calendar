@@ -14,6 +14,7 @@ module ChurrosEventParser = struct
     location : string;
     id : string;
     organizer : t_organizer;
+    coOrganizers : t_organizer list;
     localID : string;
   }
   [@@deriving yojson] [@@yojson.allow_extra_fields]
@@ -62,10 +63,22 @@ let ics_of_event (event : ChurrosEventParser.t) : Ics.t_ics =
       { key = "DTEND"; value = change_date_format event.endsAt };
       {
         key = "SUMMARY";
-        value = Printf.sprintf "%s (%s)" event.title event.organizer.name;
+        value =
+          Printf.sprintf "%s (%s)" event.title
+            (List.fold_left
+               (fun acc (o : ChurrosEventParser.t_organizer) ->
+                 acc ^ " × " ^ o.name)
+               ""
+               (event.organizer :: event.coOrganizers));
       };
       { key = "LOCATION"; value = event.location };
-      { key = "DESCRIPTION"; value = Printf.sprintf "%s\n\n\nPlus d'infos: https://churros.inpt.fr/events/%s" event.description event.localID };
+      {
+        key = "DESCRIPTION";
+        value =
+          Printf.sprintf
+            "%s\n\n\nPlus d'infos: https://churros.inpt.fr/events/%s"
+            event.description event.localID;
+      };
       { key = "END"; value = "VEVENT" };
     ]
 
