@@ -8,7 +8,7 @@ let churros_graphql_url = "https://churros.inpt.fr/graphql"
 let graphql =
   Printf.sprintf
     {|
-  {
+  query ChurrosOnlineCalendar {
     events(last: %i) {
       nodes {
         id
@@ -20,6 +20,9 @@ let graphql =
         updatedAt
         location
         organizer {
+          name
+        }
+        coOrganizers {
           name
         }
       }
@@ -36,6 +39,7 @@ let req_body graphql =
     {|
       {
         "query":"%s",
+        "operationName":"ChurrosOnlineCalendar",
         "extensions":{}
       }
     |}
@@ -66,7 +70,7 @@ let request_churros_uid (churros_token : string) : string option Lwt.t =
   and body =
     Cohttp_lwt.Body.of_string
       (req_body {|
-      {
+      query ChurrosOnlineCalendar {
         me {
           uid
         }
