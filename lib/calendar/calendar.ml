@@ -64,12 +64,11 @@ let ics_of_event (event : ChurrosEventParser.t) : Ics.t_ics =
       {
         key = "SUMMARY";
         value =
-          Printf.sprintf "%s (%s)" event.title
+          Printf.sprintf "%s (%s%s)" event.title event.organizer.name
             (List.fold_left
                (fun acc (o : ChurrosEventParser.t_organizer) ->
                  acc ^ " × " ^ o.name)
-               ""
-               (event.organizer :: event.coOrganizers));
+               "" event.coOrganizers);
       };
       { key = "LOCATION"; value = event.location };
       {
