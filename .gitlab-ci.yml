@@ -33,6 +33,8 @@ pages:
   stage: push
   only:
     - main
+  run:
+    - ls public/
   artifacts:
     paths:
       - public
