@@ -33,7 +33,7 @@ pages:
   stage: push
   only:
     - main
-  run:
+  script:
     - ls public/
   artifacts:
     paths:
