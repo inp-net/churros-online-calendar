@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <title>churros-online-calendar</title>
+    <style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap');
+
+body {
+  min-height: 90vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+main {
+  max-width: 30em;
+  text-align: center;
+}
+
+main > * {
+  margin: 2rem;
+}
+
+#churros-login {
+  text-align: right;
+  display: grid;
+  grid-template-columns: 0fr 1fr;
+  grid-template-rows: repeat(3, 1fr);
+  grid-column-gap: 1rem;
+  grid-row-gap: 0.5rem;
+}
+
+#calendar-url {
+  display: flex;
+  flex-direction: column;
+}
+
+#calendar-url > * {
+  margin-bottom: 0.5rem;
+}
+
+button {
+  grid-column: span 2;
+  margin: auto;
+  background-color: #ef9f15;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0 1rem;
+  height: 100%;
+}
+
+button:hover {
+  background-color: #d2ef15;
+}
+
+button:active {
+  transform: translateY(4px);
+}
+
+input {
+  border-radius: 0.5rem;
+  border: solid thin grey;
+  background-color: white;
+}
+
+form {
+  padding: 1rem;
+  border-radius: 1rem;
+  background-color: #f3f4f6;
+}
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Obtenir son lien de calendrier churros</h1>
+      <strong id="error-message" style="display:none;color:red;">placeholder</strong>
+      <form id="churros-login">
+	<label for="form-uid">uid:</label>
+	<input type="text" name="uid" id="form-uid">
+	<label for="form-password">password:</label>
+	<input type="password" name="password" id="form-password">
+	<button type="submit">login</button>
+      </form>
+      <form id="calendar-url" style="display:none;">
+	<label for="form-calendar-url">my churros feed:</label>
+	<input type="text" name="url" id="form-calendar-url" value="please connect" readonly>
+	<button type="button" id="copy-button">copy url</button>
+	<a href="#" id="add-google">add to google-calendar</a>
+      </form>
+    </main>
+
+    <script>
+      const onlineFeedHost = "https://churros-online-calendar.inpt.fr";
+      // const onlineFeedHost = "http://localhost:8080";
+      const churrosForm = document.getElementById("churros-login");
+      const calendarForm = document.getElementById("calendar-url");
+      const errorText = document.getElementById("error-message");
+      const copyButton = document.getElementById("copy-button");
+      const addGoogle = document.getElementById("add-google");
+
+      async function getToken(uid, pwd) {
+	let response = await fetch("https://churros.inpt.fr/graphql", {
+	  "headers": {
+	    "Accept": "application/json",
+	    "Content-Type": "application/json",
+	  },
+	  "body": `{\"query\":\"mutation {\\n  login(email: \\\"${uid}\\\", password: \\\"${pwd}\\\") {\\n    __typename\\n    ... on Error {\\n      message\\n    }\\n    ... on MutationLoginSuccess {\\n      data {\\n        token\\n      }\\n    }\\n  }\\n}\",\"extensions\":{}}`,
+	  "method": "POST",
+	  "mode": "cors"
+	});
+
+	if (!response.ok) {
+	  throw new Error('Network response was not ok');
+	}
+	let data = await response.json();
+
+	// console.log(data);
+	// console.log(data.data.login.data.token);
+	return data.data.login.data.token;
+      }
+
+      async function getCalendarUrl(token) {
+	let response = await fetch(`${onlineFeedHost}/register`, {
+	  "body": `${token}`,
+	  "method": "POST",
+	  "mode": "cors"
+	});
+
+	if (!response.ok) {
+	  throw new Error('Network response was not ok');
+	}
+	let data = await response.text();
+	return data;
+      }
+
+      function displayError(msg) {
+	errorText.innerText = msg;
+	errorText.style.display = "";
+      }
+
+      function hideError() {
+	errorText.style.display = "none";
+      }
+
+      function genAddToGoogleLink(feedUrl) {
+	return `https://calendar.google.com/calendar/u/0/r/week?cid=${encodeURIComponent(feedUrl.replace("https://", "webcal://"))}`;
+      }
+
+      function showUrl(calendarId) {
+	hideError();
+	calendarForm.style.display = "";
+	feedUrl = `${onlineFeedHost}/calendars/${calendarId}/churros.ics`;
+	calendarForm.url.value = feedUrl;
+	addGoogle.href = genAddToGoogleLink(feedUrl);
+      }
+
+      copyButton.addEventListener("click", () => {
+	navigator.clipboard.writeText(calendarForm.url.value);
+      });
+
+      churrosForm.addEventListener("submit", (e) => {
+	e.preventDefault();
+	const formData = new FormData(e.target);
+	const formProps = Object.fromEntries(formData);
+	getToken(formProps["uid"], formProps["password"]).then((value) => {
+	  // console.log(value);
+	  getCalendarUrl(value).then((value) => {
+	    showUrl(value);
+	  }).catch((e) => {
+	    displayError("failed to get calendar url");
+	  });
+	}).catch ((e) => {
+	  displayError("failed to login to churros");
+	});
+      });
+    </script>
+  </body>
+</html>

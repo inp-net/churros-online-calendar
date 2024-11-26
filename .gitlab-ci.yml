@@ -28,3 +28,13 @@ push:
     - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://harbor.k8s.inpt.fr/net7_public/churros-online-calendar:latest"
   only:
     - main
+
+pages:
+  stage: push
+  only:
+    - main
+  script:
+    - ls public/
+  artifacts:
+    paths:
+      - public
