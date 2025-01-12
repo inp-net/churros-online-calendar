@@ -17,21 +17,12 @@ build:
     - cachix use net7toulouse
     - nix build .#docker-stream
     - ./result > docker-image.tar
-  artifacts:
-    paths:
-      - docker-image.tar
-
-push:
-  stage: push
-  script:
     - nix profile install nixpkgs#skopeo
     - skopeo login harbor.k8s.inpt.fr -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
     - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://harbor.k8s.inpt.fr/net7_public/churros-online-calendar:latest"
-  only:
-    - main
 
 pages:
-  stage: push
+  stage: push-pages
   only:
     - main
   script:
