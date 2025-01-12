@@ -4,7 +4,7 @@ image: docker.nix-community.org/nixpkgs/cachix-flakes
 
 stages:
   - build
-  - push
+  - push-pages
 
 cache:
   paths:
