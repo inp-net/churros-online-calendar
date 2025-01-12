@@ -13,6 +13,7 @@ cache:
 build:
   stage: build
   script:
+    - cachix use nix-community
     - cachix use net7toulouse
     - nix build .#docker-stream
     - ./result > docker-image.tar
