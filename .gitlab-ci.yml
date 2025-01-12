@@ -14,7 +14,7 @@ build:
   stage: build
   script:
     - cachix use net7toulouse
-    - nix build .#docker-stream-musl
+    - nix build .#docker-stream
     - ./result > docker-image.tar
   artifacts:
     paths:
