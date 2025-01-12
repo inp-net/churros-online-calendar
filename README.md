@@ -41,15 +41,13 @@ vous pouvez également ajouter l'exécutable au path temporairement avec:
 `nix shell git+https://git.inpt.fr/inp-net/churros-ecosystem/online-calendar.git`
 
 ## Configuration
-(la configuration de la base de donnée va probablement changer dans le futur)
 
-### Postgresql
-Pour lancer le projet et utiliser une base de donnée postgresql, utiliser les variables d'environnement comme suit:
-`PGHOST=localhost PGPORT=5455 PGDATABASE=postgresDB PGUSER=postgresUser PGPASSWORD=postgresPW churros_online_calendar`
+Utiliser la variable d'environnement "DB_URI" pour se connecter à la base de données.
 
-Les variables `PGUSER` et `PGPASSWORD` ne doivent pas être renseignée si votre base de donnée ne nécessite pas d'authentification.
+Exemple:
 
-### Sqlite
+`DB_URI='mariadb://<user>:<password>@<serveur_sql>/<database_name>' churros_online_calendar`
+
 Si aucune variable d'environnement n'est passée à l'exécutable, une base de donnée sqlite par défaut sera créée et sera accessible dans `/tmp/test.sql`.
 
-L'utilisation de cette base de donnée est plutôt à réserver pour du developpement. Elle est déconseillée en production.
+L'utilisation de sqlite est plutôt à réserver pour du developpement. Elle est déconseillée en production.

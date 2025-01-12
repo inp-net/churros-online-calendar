@@ -7,7 +7,7 @@
   outputs = { self, nixpkgs }:
     let
       # Generate a user-friendly version number.
-      version = "alpha1";
+      version = "alpha2";
 
       # System types to support.
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
@@ -44,12 +44,13 @@
               caqti-lwt
               caqti-driver-sqlite3
               caqti-driver-postgresql
+              caqti-driver-mariadb
               mirage-crypto-rng
               mirage-crypto-rng-lwt
               base64
-	      yojson
-	      ppx_yojson_conv
-            ];
+              yojson
+              ppx_yojson_conv
+            ] ++ [ pkgs.mariadb ];
           };
 
           dockerbuilder = buildfun: pkgs:

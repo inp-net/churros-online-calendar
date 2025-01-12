@@ -69,7 +69,8 @@ let request_churros_uid (churros_token : string) : string option Lwt.t =
       (Printf.sprintf "Bearer %s" churros_token)
   and body =
     Cohttp_lwt.Body.of_string
-      (req_body {|
+      (req_body
+         {|
       query ChurrosOnlineCalendar {
         me {
           uid

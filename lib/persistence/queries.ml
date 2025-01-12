@@ -1,29 +1,8 @@
 (** If we can get access to some env vars, we construct a special URI to use our local DB.
    Otherwise, we return a default URI, which is "sqlite3:///tmp/test.sql". We would then use our system DB. *)
 let get_uri () =
-  (* What is this `let*` syntax? In short, it allows to minimize the boilerplate associated to extracting **optional** values.
-     Once we reach the bottom, we know all the prior function calls have successfully ran. Otherwise, the function short-circuits and returns `None`. *)
-  let env_vars =
-    let ( let* ) = Option.bind in
-    let* pg_host = Sys.getenv_opt "PGHOST" in
-    let* pg_port = Sys.getenv_opt "PGPORT" in
-    let* pg_database = Sys.getenv_opt "PGDATABASE" in
-    Some (pg_host, pg_port, pg_database)
-  in
-  match env_vars with
-  | Some (pg_host, pg_port, pg_database) -> (
-      let env_vars_auth =
-        let ( let* ) = Option.bind in
-        let* pg_user = Sys.getenv_opt "PGUSER" in
-        let* pg_password = Sys.getenv_opt "PGPASSWORD" in
-        Some (pg_user, pg_password)
-      in
-      match env_vars_auth with
-      | Some (pg_user, pg_password) ->
-          Printf.sprintf "postgresql://%s:%s@%s:%s/%s" pg_user pg_password
-            pg_host pg_port pg_database
-      | None ->
-          Printf.sprintf "postgresql://%s:%s/%s" pg_host pg_port pg_database)
+  match Sys.getenv_opt "DB_URI" with
+  | Some s -> s
   | None -> "sqlite3:///tmp/test.sql"
 
 let connect () =

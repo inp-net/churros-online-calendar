@@ -7,4 +7,5 @@
   caqti
   caqti-driver-sqlite3
   caqti-driver-postgresql
+  caqti-driver-mariadb
   caqti-lwt.unix))
