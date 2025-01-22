@@ -18,8 +18,8 @@ build:
     - nix build .#docker-stream
     - ./result > docker-image.tar
     - nix profile install nixpkgs#skopeo
-    - skopeo login harbor.k8s.inpt.fr -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
-    - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://harbor.k8s.inpt.fr/net7_public/churros-online-calendar:latest"
+    - skopeo login $CI_REGISTRY -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+    - skopeo --insecure-policy copy "docker-archive:docker-image.tar" "docker://$CI_REGISTRY_IMAGE:latest"
 
 pages:
   stage: push-pages
